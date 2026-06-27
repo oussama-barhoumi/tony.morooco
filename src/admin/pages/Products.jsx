@@ -29,6 +29,7 @@ function ProductForm({ initial, onSave, onCancel }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [specs, setSpecs] = useState([{ key: '', value: '' }]);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef(null);
 
   // Initialize form when editing
@@ -119,51 +120,77 @@ function ProductForm({ initial, onSave, onCancel }) {
 
   const handleSubmit = async () => {
     setLoading(true);
-    const formData = new FormData();
-    formData.append('name', form.name);
-    formData.append('description', form.description);
-    formData.append('category', form.category);
-    formData.append('brand', form.brand);
-    formData.append('price', form.price);
-    formData.append('original_price', form.originalPrice);
-    formData.append('discount', form.discount);
-    formData.append('stock', form.stock);
-    formData.append('status', form.status);
-    formData.append('sizes', form.sizes.join(','));
-    formData.append('is_featured', form.is_featured);
-    formData.append('is_bestseller', form.is_bestseller);
-    formData.append('is_new_arrival', form.is_new_arrival);
-    formData.append('is_active', form.is_active);
-
-    // Format specifications Map
-    const specMap = {};
-    specs.forEach(row => {
-      if (row.key.trim() && row.value.trim()) {
-        specMap[row.key.trim()] = row.value.trim();
-      }
-    });
-    formData.append('specifications', JSON.stringify(specMap));
-
-    // Existing images (merging updates)
-    formData.append('existing_images', form.existingImages.join(','));
-
-    // Append new files
-    form.images.forEach(file => {
-      formData.append('images', file);
-    });
-
+    setUploadProgress(0);
+    
     try {
+      // 1. Upload new images sequentially to track progress
+      const newImageUrls = [];
+      const totalFiles = form.images.length;
+      
+      for (let i = 0; i < totalFiles; i++) {
+        const file = form.images[i];
+        const uploadData = new FormData();
+        uploadData.append('image', file);
+        
+        const response = await api.post('/content/upload', uploadData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            const baseProgress = (i / totalFiles) * 100;
+            const currentProgress = percentCompleted / totalFiles;
+            setUploadProgress(baseProgress + currentProgress);
+          }
+        });
+        
+        if (response.data.success) {
+          newImageUrls.push(response.data.url);
+        } else {
+          throw new Error('Image upload failed');
+        }
+      }
+      
+      setUploadProgress(100);
+
+      // 2. Format specifications Map
+      const specMap = {};
+      specs.forEach(row => {
+        if (row.key.trim() && row.value.trim()) {
+          specMap[row.key.trim()] = row.value.trim();
+        }
+      });
+
+      // 3. Construct JSON payload for the product
+      const payload = {
+        name: form.name,
+        description: form.description,
+        category: form.category,
+        brand: form.brand,
+        price: form.price,
+        original_price: form.originalPrice,
+        discount: form.discount,
+        stock: form.stock,
+        status: form.status,
+        sizes: form.sizes.join(','),
+        is_featured: form.is_featured,
+        is_bestseller: form.is_bestseller,
+        is_new_arrival: form.is_new_arrival,
+        is_active: form.is_active,
+        specifications: specMap,
+        images: [...form.existingImages, ...newImageUrls]
+      };
+
       if (initial) {
-        await api.put(`/products/${initial.id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.put(`/products/${initial.id}`, payload);
       } else {
-        await api.post('/products', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.post('/products', payload);
       }
       onSave();
     } catch (err) {
       console.error('Save failed', err);
-      alert(err.response?.data?.message || 'Error occurred while saving product');
+      alert(err.response?.data?.message || err.message || 'Error occurred while saving product');
     } finally {
       setLoading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -336,10 +363,18 @@ function ProductForm({ initial, onSave, onCancel }) {
           </div>
         </div>
 
-        <div className="flex gap-3 mt-8">
-          <button onClick={onCancel} className="flex-1 py-3 rounded-xl border border-white/10 text-white/50 hover:text-white text-sm font-bold transition-all">Cancel</button>
+        <div className="flex gap-3 mt-8 relative">
+          {loading && uploadProgress > 0 && uploadProgress < 100 && (
+            <div className="absolute -top-6 left-0 right-0 h-1 bg-white/10 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-[#B5232B] transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          )}
+          <button onClick={onCancel} disabled={loading} className="flex-1 py-3 rounded-xl border border-white/10 text-white/50 hover:text-white text-sm font-bold transition-all disabled:opacity-50">Cancel</button>
           <button onClick={handleSubmit} disabled={loading} className="flex-1 py-3 rounded-xl bg-[#B5232B] hover:bg-[#9a1c23] text-white text-sm font-bold transition-all shadow-lg disabled:opacity-50">
-            {loading ? 'Saving...' : initial ? 'Save Changes' : 'Add Product'}
+            {loading ? (uploadProgress > 0 && uploadProgress < 100 ? `Uploading Images (${Math.round(uploadProgress)}%)...` : 'Saving...') : initial ? 'Save Changes' : 'Add Product'}
           </button>
         </div>
       </div>

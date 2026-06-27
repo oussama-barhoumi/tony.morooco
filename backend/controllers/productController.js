@@ -166,11 +166,8 @@ exports.create = async (req, res, next) => {
     const existing = await Product.findOne({ slug });
     if (existing) return res.status(409).json({ success: false, message: 'Product with this name already exists' });
 
-    // Upload multiple images
-    let imageUrls = [];
-    if (req.files && req.files.length > 0) {
-      imageUrls = await uploadMultipleImages(req.files);
-    }
+    // Handle images array from frontend
+    let imageUrls = req.body.images || [];
 
     const product = await Product.create({
       name,
@@ -262,23 +259,16 @@ exports.update = async (req, res, next) => {
     }
 
     // Handle images array merging
-    let finalImages = [];
-    if (existing_images) {
-      // existing_images can be a comma-separated string or array
-      finalImages = Array.isArray(existing_images) 
-        ? existing_images 
-        : existing_images.split(',').map(s => s.trim()).filter(Boolean);
-    } else if (req.body.images && Array.isArray(req.body.images)) {
-      finalImages = req.body.images;
-    } else {
-      // Default to keeping existing product images if not specified
-      finalImages = product.images || [];
-    }
-
-    // Upload any new images
-    if (req.files && req.files.length > 0) {
-      const newImageUrls = await uploadMultipleImages(req.files);
-      finalImages = [...finalImages, ...newImageUrls];
+    let finalImages = product.images || [];
+    
+    // If the frontend explicitly sends images, use them.
+    if (req.body.images !== undefined) {
+      finalImages = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
+    } else if (req.body.existing_images !== undefined) {
+      // Fallback for older FormData clients
+      finalImages = Array.isArray(req.body.existing_images) 
+        ? req.body.existing_images 
+        : req.body.existing_images.split(',').map(s => s.trim()).filter(Boolean);
     }
 
     updates.images = finalImages;
