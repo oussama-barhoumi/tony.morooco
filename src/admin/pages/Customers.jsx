@@ -70,8 +70,8 @@ export default function Customers() {
                     <td className="px-5 py-4 text-center">
                       <span className="bg-white/8 text-white/70 text-xs font-bold rounded-full px-2.5 py-1">{customer.orders}</span>
                     </td>
-                    <td className="px-5 py-4 text-white font-bold text-sm whitespace-nowrap">{customer.totalSpent.toLocaleString()} DH</td>
-                    <td className="px-5 py-4 text-white/30 text-xs whitespace-nowrap">{customer.lastOrder}</td>
+                    <td className="px-5 py-4 text-white font-bold text-sm whitespace-nowrap">{customer.spent.toLocaleString()} DH</td>
+                    <td className="px-5 py-4 text-white/30 text-xs whitespace-nowrap">{customer.date}</td>
                     <td className="px-5 py-4">
                       <button
                         onClick={() => setSelected(customer)}
@@ -112,7 +112,7 @@ export default function Customers() {
                 { label: 'Phone', value: selected.phone },
                 { label: 'City', value: selected.city },
                 { label: 'Total Orders', value: selected.orders },
-                { label: 'Total Spent', value: `${selected.totalSpent.toLocaleString()} DH` },
+                { label: 'Total Spent', value: `${selected.spent?.toLocaleString() || 0} DH` },
               ].map(row => (
                 <div key={row.label} className="bg-white/3 rounded-xl p-4">
                   <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest mb-1">{row.label}</p>

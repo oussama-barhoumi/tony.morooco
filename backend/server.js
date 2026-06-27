@@ -4,15 +4,25 @@ const cors       = require('cors');
 const helmet     = require('helmet');
 const rateLimit  = require('express-rate-limit');
 const path       = require('path');
+const connectDB  = require('./config/db');
 
 const errorHandler = require('./middleware/errorHandler');
+
+// ─── Connect to MongoDB ──────────────────────────────────────
+connectDB();
 
 const app = express();
 
 // ─── Security ────────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
-  origin:      process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: function (origin, callback) {
+    if (!origin || origin.startsWith('http://localhost:')) {
+      callback(null, true);
+    } else {
+      callback(null, process.env.FRONTEND_URL || 'http://localhost:5173');
+    }
+  },
   credentials: true,
   methods:     ['GET','POST','PUT','DELETE','OPTIONS'],
 }));
@@ -32,11 +42,19 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/api/health', (req, res) => res.json({ success: true, message: 'Tony Original Morocco API is running', timestamp: new Date().toISOString() }));
 
 // ─── Routes ──────────────────────────────────────────────────
-app.use('/api/auth',      require('./routes/auth'));
-app.use('/api/products',  require('./routes/products'));
-app.use('/api/orders',    require('./routes/orders'));
-app.use('/api/customers', require('./routes/customers'));
-app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/auth',        require('./routes/auth'));
+app.use('/api/products',    require('./routes/products'));
+app.use('/api/orders',      require('./routes/orders'));
+app.use('/api/customers',   require('./routes/customers'));
+app.use('/api/dashboard',   require('./routes/dashboard'));
+app.use('/api/settings',    require('./routes/settings'));
+app.use('/api/content',     require('./routes/content'));
+app.use('/api/categories',  require('./routes/categories'));
+app.use('/api/brands',      require('./routes/brands'));
+app.use('/api/collections', require('./routes/collections'));
+app.use('/api/faqs',        require('./routes/faqs'));
+app.use('/api/features',    require('./routes/features'));
+app.use('/api/users',       require('./routes/users'));
 
 // ─── 404 ─────────────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ success: false, message: `Route ${req.method} ${req.originalUrl} not found` }));

@@ -15,64 +15,21 @@ import {
   Phone,
   MapPin
 } from 'lucide-react';
+import api from '../api';
 
 if (typeof window !== 'undefined') {
   gsap.registerPlugin(ScrollTrigger);
 }
 
-
-const products = [
-  {
-    id: 1,
-    title: "Tony Signature Tee",
-    headline: "Born in Morocco. Built for the Streets.",
-    highlightWord: "Streets.",
-    category: "Premium Streetwear",
-    badgeColor: "bg-[#B5232B] text-white",
-    description: "Heavyweight premium cotton. Structured silhouette. Minimal branding — maximum presence. The piece you reach for every time.",
-    originalPrice: "800 DH",
-    price: "550 DH",
-    image: "/CAROUSEL%20IMG/Screenshot_2026-06-23_at_01.15.57-removebg-preview.png",
-  },
-  {
-    id: 2,
-    title: "Tony Essential Hoodie",
-    headline: "Wear Less. Say More.",
-    highlightWord: "More.",
-    category: "Essential Collection",
-    badgeColor: "bg-[#241B14] text-[#F8F4EC]",
-    description: "Cut for confidence. Fleece-lined, drop-shoulder, built to outlast trends. This is not fast fashion — this is a statement you keep for years.",
-    originalPrice: "800 DH",
-    price: "550 DH",
-    image: "/CAROUSEL%20IMG/Screenshot_2026-06-23_at_01.16.07-removebg-preview.png",
-  },
-  {
-    id: 3,
-    title: "Tony Original Cargo",
-    headline: "Move with Intention.",
-    highlightWord: "Intention.",
-    category: "Street Utility",
-    badgeColor: "bg-[#B5232B] text-white",
-    description: "Reinforced utility pockets, tapered cut, premium ripstop fabric. Designed for those who don't stand still.",
-    originalPrice: "800 DH",
-    price: "550 DH",
-    image: "/CAROUSEL%20IMG/Screenshot_2026-06-23_at_03.44.10-removebg-preview.png",
-  },
-  {
-    id: 4,
-    title: "Tony Morocco Cap",
-    headline: "The Next Drop Won't Wait.",
-    highlightWord: "Wait.",
-    category: "Accessories",
-    badgeColor: "bg-[#241B14] text-[#F8F4EC]",
-    description: "Six-panel structured fit. Embroidered Tony Original logo. Limited quantities — once it's gone, it's gone.",
-    originalPrice: "800 DH",
-    price: "550 DH",
-    image: "/CAROUSEL%20IMG/Screenshot_2026-06-23_at_03.44.18-removebg-preview.png",
-  }
-];
-
 export default function Home() {
+  // Dynamic data states
+  const [banners, setBanners] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [testimonials, setTestimonials] = useState([]);
+  const [settings, setSettings] = useState({});
+  const [loading, setLoading] = useState(true);
+
   // Navigation states
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -83,7 +40,17 @@ export default function Home() {
   const isTransitioning = useRef(false);
 
   // Selected products state (interactive cart integration with Order section)
-  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('tony_cart') || '[]');
+    } catch (e) {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('tony_cart', JSON.stringify(selectedProducts));
+  }, [selectedProducts]);
 
   // Toast notification state
   const [toast, setToast] = useState({ visible: false, message: '' });
@@ -129,9 +96,41 @@ export default function Home() {
   const orderStepsRef = useRef([]);
   const successCardRef = useRef(null);
 
-  // Check prefers-reduced-motion on mount
+  // Load data on mount
   useEffect(() => {
-    prefersReducedMotion.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const loadData = async () => {
+      try {
+        const [bannersRes, productsRes, categoriesRes, settingsRes, testimonialsRes] = await Promise.all([
+          api.get('/content/banners'),
+          api.get('/products?status=active'),
+          api.get('/products/categories'),
+          api.get('/settings'),
+          api.get('/content/testimonials')
+        ]);
+
+        if (bannersRes.data.success) {
+          setBanners(bannersRes.data.banners);
+        }
+        if (productsRes.data.success) {
+          setProducts(productsRes.data.products);
+        }
+        if (categoriesRes.data.success) {
+          setCategories(categoriesRes.data.categories);
+        }
+        if (settingsRes.data.success) {
+          setSettings(settingsRes.data.settings);
+        }
+        if (testimonialsRes.data.success) {
+          setTestimonials(testimonialsRes.data.testimonials);
+        }
+      } catch (err) {
+        console.error("Error loading storefront data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
 
     // Detect scroll for floating navbar
     const handleScroll = () => {
@@ -143,46 +142,12 @@ export default function Home() {
     };
     window.addEventListener('scroll', handleScroll);
 
-    // Initial setup of slides
-    slidesRef.current.forEach((slide, idx) => {
-      if (slide) {
-        gsap.set(slide, {
-          opacity: idx === 0 ? 1 : 0,
-          zIndex: idx === 0 ? 10 : 0,
-          pointerEvents: idx === 0 ? 'auto' : 'none'
-        });
-      }
-    });
-
-    // Animate initial first slide background and text elements
-    const activeBg = slideBgsRef.current[0];
-    const activeCategory = slideCategoryRef.current[0];
-    const activeTitle = slideTitleRef.current[0];
-    const activeDesc = slideDescRef.current[0];
-    const activePrice = slidePriceRef.current[0];
-    const activeCta = slideCtaRef.current[0];
-
-    const motion = !prefersReducedMotion.current;
-
-    if (activeBg && motion) gsap.set(activeBg, { scale: 1.05 });
-
-    const tl = gsap.timeline();
-    if (activeBg && motion) {
-      tl.to(activeBg, { scale: 1.15, duration: 5, ease: 'power1.out' }, 0);
-    }
-    tl.fromTo(
-      [activeCategory, activeTitle, activeDesc, activePrice, activeCta].filter(Boolean),
-      { y: motion ? 30 : 0, opacity: 0 },
-      { y: 0, opacity: 1, duration: motion ? 1 : 0.2, stagger: motion ? 0.15 : 0, ease: 'power3.out' },
-      0.2
-    );
-
-    startAutoplay();
+    prefersReducedMotion.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     return () => {
+      window.removeEventListener('scroll', handleScroll);
       if (autoplayRef.current) autoplayRef.current.kill();
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-      window.removeEventListener('scroll', handleScroll);
     };
   }, []);
 
@@ -196,22 +161,22 @@ export default function Home() {
 
   // Carousel navigation handler
   const handleManualNav = (direction) => {
-    if (isTransitioning.current) return;
+    if (banners.length === 0 || isTransitioning.current) return;
     isTransitioning.current = true;
 
     if (autoplayRef.current) autoplayRef.current.kill();
 
     setPrevIndex(currentIndex);
     if (direction === 'next') {
-      setCurrentIndex((prev) => (prev + 1) % products.length);
+      setCurrentIndex((prev) => (prev + 1) % banners.length);
     } else {
-      setCurrentIndex((prev) => (prev - 1 + products.length) % products.length);
+      setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
     }
   };
 
   // Carousel transition effect
   useEffect(() => {
-    if (prevIndex === null) return;
+    if (prevIndex === null || banners.length === 0) return;
 
     const incomingSlide = slidesRef.current[currentIndex];
     const outgoingSlide = slidesRef.current[prevIndex];
@@ -267,90 +232,126 @@ export default function Home() {
 
     // Restart autoplay timer
     startAutoplay();
-  }, [currentIndex, prevIndex]);
+  }, [currentIndex, prevIndex, banners]);
 
-  // Scroll Trigger animation for Products section
+  // GSAP animations setup once dynamic data loads
   useEffect(() => {
-    const trigger = productsSectionRef.current;
-    if (!trigger) return;
+    if (loading) return;
 
-    const cards = productCardsRef.current.filter(Boolean);
-    const motion = !prefersReducedMotion.current;
+    if (banners.length > 0) {
+      // Initial setup of slides
+      slidesRef.current.forEach((slide, idx) => {
+        if (slide) {
+          gsap.set(slide, {
+            opacity: idx === 0 ? 1 : 0,
+            zIndex: idx === 0 ? 10 : 0,
+            pointerEvents: idx === 0 ? 'auto' : 'none'
+          });
+        }
+      });
 
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: trigger,
-        start: "top 80%",
-        toggleActions: "play none none none",
-        once: true,
+      // Animate initial first slide background and text elements
+      const activeBg = slideBgsRef.current[0];
+      const activeCategory = slideCategoryRef.current[0];
+      const activeTitle = slideTitleRef.current[0];
+      const activeDesc = slideDescRef.current[0];
+      const activePrice = slidePriceRef.current[0];
+      const activeCta = slideCtaRef.current[0];
+
+      const motion = !prefersReducedMotion.current;
+
+      if (activeBg && motion) gsap.set(activeBg, { scale: 1.05 });
+
+      const tl = gsap.timeline();
+      if (activeBg && motion) {
+        tl.to(activeBg, { scale: 1.15, duration: 5, ease: 'power1.out' }, 0);
       }
-    });
-
-    tl.fromTo(
-      productsTitleRef.current,
-      { y: motion ? 30 : 0, opacity: 0 },
-      { y: 0, opacity: 1, duration: motion ? 0.6 : 0.2, ease: "power2.out" }
-    );
-
-    tl.fromTo(
-      productsSubRef.current,
-      { y: motion ? 20 : 0, opacity: 0 },
-      { y: 0, opacity: 1, duration: motion ? 0.5 : 0.2, ease: "power2.out" },
-      "-=0.4"
-    );
-
-    if (cards.length > 0) {
       tl.fromTo(
-        cards,
-        { y: motion ? 50 : 0, opacity: 0 },
-        { y: 0, opacity: 1, duration: motion ? 0.8 : 0.2, stagger: motion ? 0.12 : 0, ease: "power3.out" },
-        "-=0.3"
-      );
-    }
-  }, []);
-
-  // Scroll Trigger animation for Order section
-  useEffect(() => {
-    const trigger = orderSectionRef.current;
-    if (!trigger) return;
-
-    const steps = orderStepsRef.current.filter(Boolean);
-    const motion = !prefersReducedMotion.current;
-
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: trigger,
-        start: "top 75%",
-        toggleActions: "play none none none",
-        once: true,
-      }
-    });
-
-    // Slide/Fade left column
-    tl.fromTo(
-      orderLeftRef.current,
-      { x: motion ? -40 : 0, opacity: 0 },
-      { x: 0, opacity: 1, duration: motion ? 0.8 : 0.2, ease: "power2.out" }
-    );
-
-    // Stagger process cards
-    if (steps.length > 0) {
-      tl.fromTo(
-        steps,
+        [activeCategory, activeTitle, activeDesc, activePrice, activeCta].filter(Boolean),
         { y: motion ? 30 : 0, opacity: 0 },
-        { y: 0, opacity: 1, duration: motion ? 0.6 : 0.2, stagger: motion ? 0.15 : 0, ease: "power2.out" },
+        { y: 0, opacity: 1, duration: motion ? 1 : 0.2, stagger: motion ? 0.15 : 0, ease: 'power3.out' },
+        0.2
+      );
+
+      startAutoplay();
+    }
+
+    // Scroll Trigger animation for Products section
+    const trigger = productsSectionRef.current;
+    if (trigger) {
+      const cards = productCardsRef.current.filter(Boolean);
+      const motion = !prefersReducedMotion.current;
+
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: trigger,
+          start: "top 80%",
+          toggleActions: "play none none none",
+          once: true,
+        }
+      });
+
+      tl.fromTo(
+        productsTitleRef.current,
+        { y: motion ? 30 : 0, opacity: 0 },
+        { y: 0, opacity: 1, duration: motion ? 0.6 : 0.2, ease: "power2.out" }
+      );
+
+      tl.fromTo(
+        productsSubRef.current,
+        { y: motion ? 20 : 0, opacity: 0 },
+        { y: 0, opacity: 1, duration: motion ? 0.5 : 0.2, ease: "power2.out" },
         "-=0.4"
       );
+
+      if (cards.length > 0) {
+        tl.fromTo(
+          cards,
+          { y: motion ? 50 : 0, opacity: 0 },
+          { y: 0, opacity: 1, duration: motion ? 0.8 : 0.2, stagger: motion ? 0.12 : 0, ease: "power3.out" },
+          "-=0.3"
+        );
+      }
     }
 
-    // Slide/Fade right column (form/success card)
-    tl.fromTo(
-      orderRightRef.current,
-      { x: motion ? 40 : 0, opacity: 0 },
-      { x: 0, opacity: 1, duration: motion ? 0.8 : 0.2, ease: "power2.out" },
-      "-=0.6"
-    );
-  }, []);
+    // Scroll Trigger animation for Order section
+    const orderTrigger = orderSectionRef.current;
+    if (orderTrigger) {
+      const steps = orderStepsRef.current.filter(Boolean);
+      const motion = !prefersReducedMotion.current;
+
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: orderTrigger,
+          start: "top 75%",
+          toggleActions: "play none none none",
+          once: true,
+        }
+      });
+
+      tl.fromTo(
+        orderLeftRef.current,
+        { x: motion ? -40 : 0, opacity: 0 },
+        { x: 0, opacity: 1, duration: motion ? 0.8 : 0.2, ease: "power2.out" }
+      );
+
+      if (steps.length > 0) {
+        tl.fromTo(
+          steps,
+          { y: motion ? 30 : 0, opacity: 0 },
+          { y: 0, opacity: 1, duration: motion ? 0.6 : 0.2, stagger: motion ? 0.15 : 0, ease: "power2.out" },
+          "-=0.4"
+        );
+      }
+
+      tl.fromTo(
+        orderRightRef.current,
+        { x: motion ? 40 : 0, opacity: 0 },
+        { x: 0, opacity: 1, duration: motion ? 0.8 : 0.2, ease: "power2.out" },
+        "-=0.6"
+      );
+    }
+  }, [loading]);
 
   // Success message scale-in animation when isSuccess changes
   useEffect(() => {
@@ -396,18 +397,25 @@ export default function Home() {
 
   // Add product to cart selection
   const handleAddProduct = (product) => {
-    if (!selectedProducts.some((p) => p.id === product.id)) {
+    const prodId = product._id || product.id;
+    const prodName = product.name || product.title;
+    if (!selectedProducts.some((p) => (p._id || p.id) === prodId)) {
       setSelectedProducts((prev) => [...prev, product]);
-      showToast(`Added ${product.title} to your bag`);
+      showToast(`Added ${prodName} to your bag`);
     } else {
-      showToast(`${product.title} is already in your bag`);
+      showToast(`${prodName} is already in your bag`);
     }
   };
 
   // Calculate cart estimated total
   const calculateTotal = () => {
     const sum = selectedProducts.reduce((acc, p) => {
-      const val = parseInt(p.price.replace(/[^\d]/g, ''), 10);
+      let val = 0;
+      if (typeof p.price === 'number') {
+        val = p.price;
+      } else if (typeof p.price === 'string') {
+        val = parseInt(p.price.replace(/[^\d]/g, ''), 10);
+      }
       return acc + (isNaN(val) ? 0 : val);
     }, 0);
     return sum.toLocaleString() + " DH";
@@ -422,49 +430,114 @@ export default function Home() {
     }
   };
 
-  // Form submission handler
-  const handleFormSubmit = (e) => {
+  // Form submission handler to submit order to API
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.phone || !formData.city || !formData.address) {
       showToast("Please fill out all required fields.");
       return;
     }
+    if (selectedProducts.length === 0) {
+      showToast("Your bag is empty. Please select products to order.");
+      return;
+    }
 
     setIsSubmitting(true);
 
-    // Simulate API delay
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSuccess(true);
-      setSubmittedData({
-        name: formData.name,
-        phone: formData.phone,
-        city: formData.city,
-        items: [...selectedProducts]
-      });
+    try {
+      const orderItems = selectedProducts.map(p => ({
+        product: p._id || p.id,
+        product_name: p.name || p.title,
+        quantity: 1,
+        price: typeof p.price === 'number' ? p.price : parseInt(p.price.replace(/[^\d]/g, ''), 10),
+        size: p.sizes ? (typeof p.sizes === 'string' ? p.sizes.split(',')[0] : p.sizes[0]) : 'M'
+      }));
 
-      // Reset form states
-      setFormData({
-        name: '',
-        phone: '',
-        city: '',
-        address: '',
-        notes: ''
-      });
-      setSelectedProducts([]);
-    }, 1500);
+      const payload = {
+        customer_name: formData.name,
+        customer_phone: formData.phone,
+        customer_email: '',
+        shipping_address: formData.address,
+        shipping_city: formData.city,
+        notes: formData.notes,
+        items: orderItems
+      };
+
+      const res = await api.post('/orders', payload);
+      if (res.data.success) {
+        setIsSuccess(true);
+        setSubmittedData({
+          name: formData.name,
+          phone: formData.phone,
+          city: formData.city,
+          items: selectedProducts.map(p => ({
+            title: p.name || p.title,
+            price: formatPrice(p.price)
+          }))
+        });
+
+        // Reset form
+        setFormData({
+          name: '',
+          phone: '',
+          city: '',
+          address: '',
+          notes: ''
+        });
+        setSelectedProducts([]);
+      } else {
+        showToast(res.data.message || "Failed to place order.");
+      }
+    } catch (err) {
+      console.error("Order submission failed:", err);
+      showToast("Could not place order. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // Helper to split title and wrap the highlight word in red
-  const renderTitle = (title, highlight) => {
-    if (!highlight) return title;
-    const parts = title.split(new RegExp(`(${highlight})`, 'gi'));
-    return parts.map((part, i) =>
-      part.toLowerCase() === highlight.toLowerCase() ? (
-        <span key={i} className="text-[#B5232B] font-semibold transition-colors duration-300">{part}</span>
-      ) : part
+  // Helper to split title and wrap the last word in red
+  const renderTitle = (title) => {
+    if (!title) return '';
+    const words = title.split(' ');
+    if (words.length <= 1) return title;
+    const lastWord = words[words.length - 1];
+    const mainText = words.slice(0, -1).join(' ') + ' ';
+    return (
+      <>
+        {mainText}
+        <span className="text-[#B5232B] font-semibold transition-colors duration-300">{lastWord}</span>
+      </>
     );
   };
+
+  const getImageUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    if (url.startsWith('/uploads/')) {
+      const backendUrl = api.defaults.baseURL.replace('/api', '');
+      return `${backendUrl}${url}`;
+    }
+    return url;
+  };
+
+  const formatPrice = (price) => {
+    if (price === undefined || price === null) return '';
+    if (typeof price === 'number') return `${price} DH`;
+    if (price.endsWith('DH')) return price;
+    return `${price} DH`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#241B14] flex flex-col items-center justify-center space-y-4">
+        <div className="font-display font-medium tracking-[0.25em] text-white uppercase text-xl animate-pulse">
+          Tony Original
+        </div>
+        <div className="w-16 h-[2px] bg-[#C9A24B] transition-all duration-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F4EC] text-[#241B14] font-sans overflow-x-hidden selection:bg-[#C9A24B] selection:text-[#241B14]">
@@ -561,9 +634,9 @@ export default function Home() {
 
       {/* ─────────────────── SECTION 1: HERO CAROUSEL ─────────────────── */}
       <section className="relative h-screen w-full overflow-hidden bg-[#241B14]">
-        {products.map((product, idx) => (
+        {banners.map((banner, idx) => (
           <div
-            key={product.id}
+            key={banner._id || idx}
             ref={(el) => (slidesRef.current[idx] = el)}
             className="absolute inset-0 w-full h-full flex flex-col-reverse lg:flex-row overflow-hidden"
           >
@@ -578,7 +651,7 @@ export default function Home() {
                 >
                   <span className="text-[#C9A24B] uppercase tracking-[0.25em] text-[10px] md:text-xs font-bold inline-flex items-center gap-2">
                     <Sparkles size={12} className="animate-pulse" />
-                    {product.category}
+                    {banner.category || "Premium Streetwear"}
                   </span>
                 </div>
 
@@ -587,7 +660,7 @@ export default function Home() {
                   ref={(el) => (slideTitleRef.current[idx] = el)}
                   className="font-display text-white text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl leading-[1.2] mb-4 md:mb-5 tracking-wide uppercase font-medium"
                 >
-                  {renderTitle(product.headline, product.highlightWord)}
+                  {renderTitle(banner.title)}
                 </h1>
 
                 {/* Description */}
@@ -595,30 +668,39 @@ export default function Home() {
                   ref={(el) => (slideDescRef.current[idx] = el)}
                   className="font-sans text-[#F8F4EC]/75 text-xs sm:text-sm md:text-base mb-6 md:mb-8 leading-relaxed font-light max-w-xl"
                 >
-                  {product.description}
+                  {banner.subtitle}
                 </p>
 
-                {/* Price tag: original crossed out + sale price */}
-                <div
-                  ref={(el) => (slidePriceRef.current[idx] = el)}
-                  className="flex items-center gap-3 mb-6 md:mb-8"
-                >
-                  <span className="font-display text-[#C9A24B] text-xl sm:text-2xl md:text-3xl font-semibold tracking-wider">
-                    {product.price}
-                  </span>
-                  <span className="font-sans text-white/40 text-base line-through tracking-wide">
-                    {product.originalPrice}
-                  </span>
-
-                </div>
+                {/* Price tag (if any) */}
+                {(banner.price || banner.originalPrice) && (
+                  <div
+                    ref={(el) => (slidePriceRef.current[idx] = el)}
+                    className="flex items-center gap-3 mb-6 md:mb-8"
+                  >
+                    <span className="font-display text-[#C9A24B] text-xl sm:text-2xl md:text-3xl font-semibold tracking-wider">
+                      {formatPrice(banner.price)}
+                    </span>
+                    {banner.originalPrice && (
+                      <span className="font-sans text-white/40 text-base line-through tracking-wide">
+                        {formatPrice(banner.originalPrice)}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Action CTA */}
                 <div ref={(el) => (slideCtaRef.current[idx] = el)}>
                   <button
-                    onClick={() => scrollToSection('products')}
+                    onClick={() => {
+                      if (banner.cta_link && banner.cta_link.startsWith('#')) {
+                        scrollToSection(banner.cta_link.substring(1));
+                      } else {
+                        window.location.href = banner.cta_link || '#products';
+                      }
+                    }}
                     className="border-2 border-[#C9A24B] text-white hover:bg-[#C9A24B] hover:text-[#241B14] px-8 py-3.5 tracking-widest uppercase text-xs font-semibold transition-all duration-300 rounded-none w-fit shadow-lg cursor-pointer flex items-center gap-2 hover:translate-x-1.5"
                   >
-                    <span>View Product</span>
+                    <span>{banner.cta_text || 'View Product'}</span>
                     <ArrowRight size={14} />
                   </button>
                 </div>
@@ -626,15 +708,15 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right Column: Product Image (transparent-bg PNG on dark background) */}
+            {/* Right Column: Product Image */}
             <div className="w-full lg:w-1/2 h-[45vh] lg:h-full relative overflow-hidden bg-[#241B14] flex items-center justify-center">
               <div
                 ref={(el) => (slideBgsRef.current[idx] = el)}
                 className="w-[38%] h-[50%] flex items-center justify-center"
               >
                 <img
-                  src={product.image}
-                  alt={product.title}
+                  src={getImageUrl(banner.image_url)}
+                  alt={banner.title}
                   className="w-full h-full object-contain drop-shadow-2xl"
                 />
               </div>
@@ -645,41 +727,47 @@ export default function Home() {
         ))}
 
         {/* Carousel controls: Side Navigation Arrows */}
-        <button
-          onClick={() => handleManualNav('prev')}
-          className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-20 w-11 h-11 md:w-16 md:h-16 flex items-center justify-center border border-white/20 bg-[#241B14]/30 hover:bg-[#C9A24B] hover:border-[#C9A24B] hover:text-[#241B14] text-white transition-all duration-300 rounded-full cursor-pointer group"
-          aria-label="Previous slide"
-        >
-          <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
-        </button>
+        {banners.length > 1 && (
+          <>
+            <button
+              onClick={() => handleManualNav('prev')}
+              className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-20 w-11 h-11 md:w-16 md:h-16 flex items-center justify-center border border-white/20 bg-[#241B14]/30 hover:bg-[#C9A24B] hover:border-[#C9A24B] hover:text-[#241B14] text-white transition-all duration-300 rounded-full cursor-pointer group"
+              aria-label="Previous slide"
+            >
+              <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
+            </button>
 
-        <button
-          onClick={() => handleManualNav('next')}
-          className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 w-11 h-11 md:w-16 md:h-16 flex items-center justify-center border border-white/20 bg-[#241B14]/30 hover:bg-[#C9A24B] hover:border-[#C9A24B] hover:text-[#241B14] text-white transition-all duration-300 rounded-full cursor-pointer group"
-          aria-label="Next slide"
-        >
-          <ChevronRight size={20} className="group-hover:translate-x-0.5 transition-transform" />
-        </button>
+            <button
+              onClick={() => handleManualNav('next')}
+              className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 w-11 h-11 md:w-16 md:h-16 flex items-center justify-center border border-white/20 bg-[#241B14]/30 hover:bg-[#C9A24B] hover:border-[#C9A24B] hover:text-[#241B14] text-white transition-all duration-300 rounded-full cursor-pointer group"
+              aria-label="Next slide"
+            >
+              <ChevronRight size={20} className="group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </>
+        )}
 
         {/* Carousel indicators: Dot Buttons */}
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 flex items-center space-x-3">
-          {products.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                if (idx === currentIndex || isTransitioning.current) return;
-                if (autoplayRef.current) autoplayRef.current.kill();
-                setPrevIndex(currentIndex);
-                setCurrentIndex(idx);
-              }}
-              className={`h-2 rounded-full transition-all duration-500 cursor-pointer ${idx === currentIndex
-                ? 'w-8 bg-[#C9A24B] shadow-lg shadow-[#C9A24B]/30'
-                : 'w-2 bg-white/40 hover:bg-white/70'
-                }`}
-              aria-label={`Go to slide ${idx + 1}`}
-            />
-          ))}
-        </div>
+        {banners.length > 1 && (
+          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 flex items-center space-x-3">
+            {banners.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  if (idx === currentIndex || isTransitioning.current) return;
+                  if (autoplayRef.current) autoplayRef.current.kill();
+                  setPrevIndex(currentIndex);
+                  setCurrentIndex(idx);
+                }}
+                className={`h-2 rounded-full transition-all duration-500 cursor-pointer ${idx === currentIndex
+                  ? 'w-8 bg-[#C9A24B] shadow-lg shadow-[#C9A24B]/30'
+                  : 'w-2 bg-white/40 hover:bg-white/70'
+                  }`}
+                aria-label={`Go to slide ${idx + 1}`}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Bottom Decoration: Fixed Moroccan-inspired stripe bar */}
         <div className="absolute bottom-0 left-0 w-full h-[6px] flex z-20">
@@ -707,7 +795,7 @@ export default function Home() {
             ref={productsSubRef}
             className="font-sans text-sm md:text-base text-[#241B14]/70 leading-relaxed font-light"
           >
-            Curated Moroccan luxury. Each piece is designed meticulously and handcrafted individually by master artisans using premium sustainable materials.
+            {settings.about_text || "Curated Moroccan luxury. Each piece is designed meticulously and handcrafted individually by master artisans using premium sustainable materials."}
           </p>
         </div>
 
@@ -715,7 +803,7 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7">
           {products.map((product, idx) => (
             <div
-              key={product.id}
+              key={product._id || idx}
               ref={(el) => (productCardsRef.current[idx] = el)}
               className="group bg-[#F8F4EC] border border-[#241B14]/5 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-2 flex flex-col justify-between h-full"
             >
@@ -723,24 +811,24 @@ export default function Home() {
                 {/* Product image with dynamic scale */}
                 <div className="relative aspect-[4/5] overflow-hidden bg-[#241B14]/5">
                   <img
-                    src={product.image}
-                    alt={product.title}
+                    src={getImageUrl(product.image_url)}
+                    alt={product.name}
                     loading="lazy"
                     className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   />
                   {/* Category Badge overlay */}
-                  <span className={`absolute top-4 left-4 text-[9px] tracking-wider uppercase font-semibold px-3 py-1 rounded-full ${product.badgeColor} shadow-sm`}>
-                    {product.category}
+                  <span className="absolute top-4 left-4 text-[9px] tracking-wider uppercase font-semibold px-3 py-1 rounded-full bg-[#241B14] text-[#F8F4EC] shadow-sm">
+                    {product.category_name || "Premium Streetwear"}
                   </span>
                 </div>
 
                 {/* Product details */}
                 <div className="p-6">
                   <h3 className="font-display font-medium text-lg md:text-xl tracking-wide text-[#241B14] mb-1.5 group-hover:text-[#B5232B] transition-colors duration-300">
-                    {product.title}
+                    {product.name}
                   </h3>
                   <p className="font-sans text-[11px] tracking-widest text-[#241B14]/50 uppercase mb-3 font-semibold">
-                    {product.category}
+                    {product.category_name || "Premium Streetwear"}
                   </p>
                   <p className="font-sans text-sm text-[#241B14]/70 line-clamp-2 leading-relaxed font-light">
                     {product.description}
@@ -748,19 +836,20 @@ export default function Home() {
                 </div>
               </div>
 
-                {/* Price & Add to Cart Action */}
-                <div className="px-6 pb-6 pt-3 flex items-center justify-between border-t border-[#241B14]/5">
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                      <span className="font-display font-bold text-[#B5232B] text-lg tracking-wide">
-                        {product.price}
-                      </span>
-
-                    </div>
-                    <span className="font-sans text-[#241B14]/40 text-xs line-through tracking-wide">
-                      {product.originalPrice}
+              {/* Price & Add to Cart Action */}
+              <div className="px-6 pb-6 pt-3 flex items-center justify-between border-t border-[#241B14]/5">
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <span className="font-display font-bold text-[#B5232B] text-lg tracking-wide">
+                      {formatPrice(product.price)}
                     </span>
                   </div>
+                  {product.original_price && (
+                    <span className="font-sans text-[#241B14]/40 text-xs line-through tracking-wide">
+                      {formatPrice(product.original_price)}
+                    </span>
+                  )}
+                </div>
                 <button
                   onClick={() => handleAddProduct(product)}
                   className="flex items-center space-x-1 border border-[#241B14]/20 text-[#241B14] hover:bg-[#241B14] hover:text-[#F8F4EC] hover:border-[#241B14] px-4 py-2.5 text-[10px] tracking-widest uppercase font-bold rounded-lg transition-all duration-300 cursor-pointer"
@@ -773,6 +862,39 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {/* ─────────────────── SECTION 2.5: TESTIMONIALS ─────────────────── */}
+      {testimonials && testimonials.length > 0 && (
+        <section className="bg-[#2d231b]/5 border-t border-b border-[#241B14]/5 py-24 md:py-32">
+          <div className="max-w-7xl mx-auto px-6 md:px-12">
+            <div className="text-center max-w-2xl mx-auto mb-16 md:mb-20">
+              <h2 className="font-display text-4xl md:text-5xl font-medium tracking-wide uppercase text-[#241B14] mb-4">
+                What They Say
+              </h2>
+              <p className="font-sans text-sm md:text-base text-[#241B14]/70 leading-relaxed font-light">
+                Reviews from our community and clients across Morocco.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {testimonials.map((t, idx) => (
+                <div key={t._id || idx} className="bg-white border border-[#241B14]/5 rounded-2xl p-8 shadow-sm hover:shadow-md transition-all duration-300">
+                  <div className="flex gap-1 mb-4 text-[#C9A24B]">
+                    {[...Array(t.rating || 5)].map((_, i) => (
+                      <span key={i} className="text-lg">★</span>
+                    ))}
+                  </div>
+                  <p className="font-sans text-sm text-[#241B14]/85 leading-relaxed mb-6 italic">
+                    "{t.content}"
+                  </p>
+                  <p className="font-sans text-xs tracking-widest text-[#241B14]/50 uppercase font-bold">
+                    — {t.author_name}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ─────────────────── SECTION 3: ORDER FORM & CONCIERGE ─────────────────── */}
       <section
@@ -811,7 +933,7 @@ export default function Home() {
                 {
                   num: "02",
                   title: "We confirm by phone",
-                  desc: "Our private brand concierge calls you within 24 hours of submission to verify details, recommend specific sizing, and schedule delivery to your preferred location."
+                  desc: `Our private brand concierge calls you within 24 hours of submission at ${settings.contact_phone || '+212 600 000 000'} to verify details, recommend specific sizing, and schedule delivery.`
                 },
                 {
                   num: "03",
@@ -908,7 +1030,7 @@ export default function Home() {
                   />
                 </div>
 
-                {/* Dynamic Selected Items list (Interactivity) */}
+                {/* Dynamic Selected Items list */}
                 {selectedProducts.length > 0 && (
                   <div className="border border-[#F8F4EC]/15 rounded-lg p-4 bg-[#241B14]/40 space-y-3">
                     <div className="flex justify-between items-center pb-2 border-b border-[#F8F4EC]/10">
@@ -925,25 +1047,25 @@ export default function Home() {
                     </div>
                     <div className="divide-y divide-[#F8F4EC]/10 max-h-48 overflow-y-auto pr-1">
                       {selectedProducts.map((product) => (
-                        <div key={product.id} className="py-2.5 flex items-center justify-between text-xs">
+                        <div key={product._id || product.id} className="py-2.5 flex items-center justify-between text-xs">
                           <div className="flex items-center space-x-3">
                             <img
-                              src={product.image}
-                              alt={product.title}
+                              src={getImageUrl(product.image_url)}
+                              alt={product.name || product.title}
                               className="w-9 h-9 rounded object-cover border border-[#F8F4EC]/10"
                             />
                             <div>
-                              <p className="text-white font-medium text-xs leading-tight">{product.title}</p>
-                              <p className="text-[9px] text-[#F8F4EC]/40 mt-0.5 uppercase tracking-wide">{product.category}</p>
+                              <p className="text-white font-medium text-xs leading-tight">{product.name || product.title}</p>
+                              <p className="text-[9px] text-[#F8F4EC]/40 mt-0.5 uppercase tracking-wide">{product.category_name || product.category}</p>
                             </div>
                           </div>
                           <div className="flex items-center space-x-3">
-                            <span className="font-display font-medium text-[#C9A24B] text-xs">{product.price}</span>
+                            <span className="font-display font-medium text-[#C9A24B] text-xs">{formatPrice(product.price)}</span>
                             <button
                               type="button"
-                              onClick={() => setSelectedProducts(prev => prev.filter(p => p.id !== product.id))}
+                              onClick={() => setSelectedProducts(prev => prev.filter(p => (p._id || p.id) !== (product._id || product.id)))}
                               className="text-white/40 hover:text-[#B5232B] transition-colors duration-200"
-                              aria-label={`Remove ${product.title}`}
+                              aria-label={`Remove ${product.name || product.title}`}
                             >
                               <Trash2 size={13} />
                             </button>
@@ -1055,8 +1177,8 @@ export default function Home() {
             <button onClick={() => scrollToSection('products')} className="hover:text-[#C9A24B] transition-colors">Products</button>
             <button onClick={() => scrollToSection('order')} className="hover:text-[#C9A24B] transition-colors">Order Now</button>
           </div>
-          <p className="text-[10px] font-semibold tracking-widest uppercase text-[#241B14]/40 pt-4">
-            © 2026 Tony — Maison Marocaine. All Rights Reserved.
+          <p className="text-[10px] font-semibold tracking-widest uppercase text-[#241B14]/40 pt-4 text-center">
+            {settings.footer_text || "© 2026 Tony — Maison Marocaine. All Rights Reserved."}
           </p>
         </div>
       </footer>

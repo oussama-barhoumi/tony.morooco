@@ -1,6 +1,7 @@
 // Central error handler — must be registered last in Express
 const errorHandler = (err, req, res, next) => {
-  console.error(`[ERROR] ${err.message}`);
+  console.error(`[ERROR] [${req.method} ${req.originalUrl}] ${err.message}`);
+  if (err.stack) console.error(err.stack);
 
   // Multer file size error
   if (err.code === 'LIMIT_FILE_SIZE')

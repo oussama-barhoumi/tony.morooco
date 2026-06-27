@@ -6,8 +6,33 @@ import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
 import Products from './pages/Products';
 import Customers from './pages/Customers';
+import Banners from './pages/Banners';
+import Settings from './pages/Settings';
+import Categories from './pages/Categories';
+import Collections from './pages/Collections';
+import Brands from './pages/Brands';
+import FAQs from './pages/FAQs';
+import Features from './pages/Features';
+import Testimonials from './pages/Testimonials';
+import Users from './pages/Users';
+import HomepageCMS from './pages/HomepageCMS';
 
-const PAGES = { dashboard: Dashboard, orders: Orders, products: Products, customers: Customers };
+const PAGES = {
+  dashboard: Dashboard,
+  orders: Orders,
+  products: Products,
+  categories: Categories,
+  collections: Collections,
+  brands: Brands,
+  customers: Customers,
+  users: Users,
+  homepagecms: HomepageCMS,
+  banners: Banners,
+  testimonials: Testimonials,
+  faqs: FAQs,
+  features: Features,
+  settings: Settings
+};
 
 function AdminShell() {
   const { isAuthenticated } = useAdmin();

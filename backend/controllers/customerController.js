@@ -1,51 +1,45 @@
-const db = require('../config/db');
+const Order = require('../models/Order');
+const Product = require('../models/Product');
 
 // GET /api/customers
 exports.getAll = async (req, res, next) => {
   try {
-    const { search } = req.query;
-    const conditions = search ? ['(name LIKE ? OR phone LIKE ? OR city LIKE ?)'] : [];
-    const params = search ? [`%${search}%`, `%${search}%`, `%${search}%`] : [];
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    // Aggregate unique customers from orders
+    const customers = await Order.aggregate([
+      {
+        $group: {
+          _id: '$customer_phone',
+          name: { $last: '$customer_name' },
+          email: { $last: '$customer_email' },
+          phone: { $last: '$customer_phone' },
+          city: { $last: '$shipping_city' },
+          total_orders: { $sum: 1 },
+          total_spent: { $sum: '$total_amount' },
+          created_at: { $min: '$createdAt' },
+        }
+      },
+      { $sort: { total_spent: -1 } }
+    ]);
 
-    const [customers] = await db.execute(
-      `SELECT c.*,
-              COUNT(o.id)    AS total_orders,
-              COALESCE(SUM(o.total_amount), 0) AS total_spent,
-              MAX(o.created_at) AS last_order_date
-       FROM customers c
-       LEFT JOIN orders o ON c.id = o.customer_id AND o.status != 'Cancelled'
-       ${where}
-       GROUP BY c.id
-       ORDER BY total_spent DESC`,
-      params
-    );
-    res.json({ success: true, total: customers.length, data: customers });
+    const normalized = customers.map(c => ({
+      id: c._id,
+      name: c.name,
+      email: c.email || 'N/A',
+      phone: c.phone,
+      city: c.city || 'N/A',
+      total_orders: c.total_orders,
+      total_spent: c.total_spent,
+      created_at: c.created_at,
+    }));
+
+    res.json({ success: true, data: normalized });
   } catch (err) { next(err); }
 };
 
-// GET /api/customers/:id
+// GET /api/customers/:phone  (order history for a customer)
 exports.getOne = async (req, res, next) => {
   try {
-    const [rows] = await db.execute('SELECT * FROM customers WHERE id = ?', [req.params.id]);
-    if (!rows.length) return res.status(404).json({ success: false, message: 'Customer not found' });
-
-    const [orders] = await db.execute(
-      `SELECT o.*, GROUP_CONCAT(oi.product_name SEPARATOR ', ') AS products
-       FROM orders o
-       LEFT JOIN order_items oi ON o.id = oi.order_id
-       WHERE o.customer_id = ?
-       GROUP BY o.id
-       ORDER BY o.created_at DESC`,
-      [req.params.id]
-    );
-
-    const [[stats]] = await db.execute(
-      `SELECT COUNT(*) AS total_orders, COALESCE(SUM(total_amount),0) AS total_spent
-       FROM orders WHERE customer_id = ? AND status != 'Cancelled'`,
-      [req.params.id]
-    );
-
-    res.json({ success: true, data: { ...rows[0], orders, ...stats } });
+    const orders = await Order.find({ customer_phone: req.params.phone }).sort({ createdAt: -1 });
+    res.json({ success: true, data: orders });
   } catch (err) { next(err); }
 };

@@ -3,7 +3,7 @@ import { useAdmin } from '../context/AdminContext';
 
 export default function Login() {
   const { login } = useAdmin();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -13,8 +13,8 @@ export default function Login() {
     setError('');
     setLoading(true);
     await new Promise(r => setTimeout(r, 600));
-    const ok = login(username, password);
-    if (!ok) setError('Invalid credentials. Try admin / tony2026');
+    const success = await login(email, password);
+    if (!success) setError('Invalid credentials.');
     setLoading(false);
   };
 
@@ -40,13 +40,13 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-white/60 text-xs font-semibold tracking-widest uppercase mb-2">Username</label>
+              <label className="block text-[10px] font-bold tracking-widest text-white/50 uppercase mb-2">Email</label>
               <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                placeholder="admin"
-                className="w-full bg-white/5 border border-white/10 text-white placeholder-white/20 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#B5232B] focus:bg-white/8 transition-all duration-200"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@tonyoriginal.ma"
+                className="w-full bg-[#0a0a0a] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#C9A24B] transition-colors"
                 required
               />
             </div>

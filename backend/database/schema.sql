@@ -132,3 +132,58 @@ INSERT IGNORE INTO categories (name, slug, description) VALUES
 ('Hoodies',      'hoodies',      'Drop-shoulder fleece-lined hoodies'),
 ('Pants',        'pants',        'Utility and street pants'),
 ('Accessories',  'accessories',  'Caps, bags, and accessories');
+
+-- ─── Banners ─────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS banners (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  title        VARCHAR(255) NOT NULL,
+  subtitle     TEXT,
+  image_url    VARCHAR(500) NOT NULL,
+  cta_text     VARCHAR(100),
+  cta_link     VARCHAR(255),
+  sort_order   INT DEFAULT 0,
+  is_active    TINYINT(1) DEFAULT 1,
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ─── Testimonials ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS testimonials (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  author_name  VARCHAR(150) NOT NULL,
+  content      TEXT NOT NULL,
+  rating       TINYINT DEFAULT 5 CHECK (rating BETWEEN 1 AND 5),
+  is_active    TINYINT(1) DEFAULT 1,
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ─── Settings ────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS settings (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  setting_key  VARCHAR(100) NOT NULL UNIQUE,
+  setting_value TEXT,
+  type         ENUM('string', 'boolean', 'json', 'number') DEFAULT 'string',
+  updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_setting_key (setting_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ─── Notifications ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS notifications (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  type         VARCHAR(100) NOT NULL,
+  message      TEXT NOT NULL,
+  is_read      TINYINT(1) DEFAULT 0,
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ─── Activity Logs ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS activity_logs (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  admin_id     INT,
+  action       VARCHAR(100) NOT NULL,
+  entity_type  VARCHAR(100),
+  entity_id    INT,
+  details      JSON,
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
