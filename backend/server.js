@@ -16,11 +16,14 @@ const app = express();
 // ─── Security ────────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 // ─── CORS ────────────────────────────────────────────────────
-const allowedOrigins = [
-  'https://tony-morooco.vercel.app',
-];
-if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL.replace(/\/$/, ''));
+const allowedOrigins = new Set();
+
+const configuredOrigins = process.env.CORS_ORIGINS || process.env.FRONTEND_URL;
+if (configuredOrigins) {
+  configuredOrigins.split(',')
+    .map((origin) => origin.trim().replace(/\/$/, ''))
+    .filter(Boolean)
+    .forEach((origin) => allowedOrigins.add(origin));
 }
 
 app.use(cors({
@@ -29,7 +32,7 @@ app.use(cors({
     if (origin.startsWith('http://localhost:')) return callback(null, true);
     
     const cleanOrigin = origin.replace(/\/$/, '');
-    if (allowedOrigins.includes(cleanOrigin)) {
+    if (allowedOrigins.has(cleanOrigin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

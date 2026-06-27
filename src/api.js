@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const defaultBaseURL = import.meta.env.DEV ? 'http://localhost:5001/api' : '/api';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
+  baseURL: import.meta.env.VITE_API_URL || defaultBaseURL,
 });
 
 // Add a request interceptor to attach the JWT token
