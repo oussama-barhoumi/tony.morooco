@@ -15,12 +15,24 @@ const app = express();
 
 // ─── Security ────────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+// ─── CORS ────────────────────────────────────────────────────
+const allowedOrigins = [
+  'https://tony-morooco.vercel.app',
+];
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL.replace(/\/$/, ''));
+}
+
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || origin.startsWith('http://localhost:')) {
+    if (!origin) return callback(null, true);
+    if (origin.startsWith('http://localhost:')) return callback(null, true);
+    
+    const cleanOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(cleanOrigin)) {
       callback(null, true);
     } else {
-      callback(null, process.env.FRONTEND_URL || 'http://localhost:5173');
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
