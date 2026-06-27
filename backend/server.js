@@ -72,6 +72,7 @@ app.use('/api/collections', require('./routes/collections'));
 app.use('/api/faqs',        require('./routes/faqs'));
 app.use('/api/features',    require('./routes/features'));
 app.use('/api/users',       require('./routes/users'));
+app.use('/uploads',       require('./routes/files'));
 
 // ─── 404 ─────────────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ success: false, message: `Route ${req.method} ${req.originalUrl} not found` }));

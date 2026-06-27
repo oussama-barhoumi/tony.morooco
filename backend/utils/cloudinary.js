@@ -1,6 +1,5 @@
 const cloudinary = require('cloudinary').v2;
-const fs = require('fs');
-const path = require('path');
+const File = require('../models/File');
 
 // Configure Cloudinary if credentials are present
 const isCloudinaryConfigured = 
@@ -16,34 +15,47 @@ if (isCloudinaryConfigured) {
   });
 }
 
+const saveToMongo = async (file) => {
+  const newFile = await File.create({
+    filename: file.originalname,
+    contentType: file.mimetype,
+    data: file.buffer,
+  });
+  return `/uploads/${newFile._id}`;
+};
+
 /**
- * Uploads a single file to Cloudinary or falls back to local URL.
- * Removes the local file after Cloudinary upload if successful.
+ * Uploads a single file to Cloudinary or falls back to MongoDB.
  * @param {Express.Multer.File} file 
  * @returns {Promise<string>} File URL
  */
-const uploadImage = async (file) => {
-  if (!file) return null;
+const uploadImage = (file) => {
+  return new Promise(async (resolve, reject) => {
+    if (!file) return resolve(null);
 
-  if (isCloudinaryConfigured) {
-    try {
-      const result = await cloudinary.uploader.upload(file.path, {
-        folder: 'tony_original_morocco',
-      });
-      // Delete temporary file from local storage
-      fs.unlink(file.path, (err) => {
-        if (err) console.error('Error deleting temp local file:', err);
-      });
-      return result.secure_url;
-    } catch (error) {
-      console.error('Cloudinary upload failed, falling back to local file path:', error);
-      // Fallback to local URL path
-      return `/uploads/${file.filename}`;
+    if (isCloudinaryConfigured) {
+      try {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'tony_original_morocco' },
+          (error, result) => {
+            if (result) {
+              resolve(result.secure_url);
+            } else {
+              console.error('Cloudinary upload error:', error);
+              saveToMongo(file).then(resolve).catch(reject);
+            }
+          }
+        );
+        stream.end(file.buffer);
+      } catch (error) {
+        console.error('Cloudinary upload failed, falling back to MongoDB:', error);
+        saveToMongo(file).then(resolve).catch(reject);
+      }
+    } else {
+      // Fallback: MongoDB
+      saveToMongo(file).then(resolve).catch(reject);
     }
-  }
-
-  // Fallback: Local URL
-  return `/uploads/${file.filename}`;
+  });
 };
 
 /**
