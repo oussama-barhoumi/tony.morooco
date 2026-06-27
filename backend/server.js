@@ -51,7 +51,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ─── Static Files (Uploaded Images) ──────────────────────────
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const isVercel = process.env.VERCEL || process.env.NOW_BUILDER;
+const staticDir = isVercel ? '/tmp' : path.join(__dirname, 'uploads');
+app.use('/uploads', express.static(staticDir));
 
 // ─── Health Check ────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ success: true, message: 'Tony Original Morocco API is running', timestamp: new Date().toISOString() }));
